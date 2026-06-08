@@ -25,8 +25,15 @@
   --tab-left: 1.1rem;
   --tab-inset: 0.58rem;
   --tab-top: var(--tab-inset);
+  --sidebar-sub-top-offset: clamp(4.75rem, 20vh, 8.5rem);
   --tab-width: min(330px, 28vw);
   --tab-width-projects: min(400px, 34vw);
+  --workspace-split-gap: 1.3rem;
+  --workspace-width: calc(
+    100vw - var(--tab-left) - var(--tab-inset) * 2 - var(--workspace-split-gap)
+  );
+  --tab-width-mission-control: calc(var(--workspace-width) * 0.7);
+  --orb-size: 420px;
   --sidebar-active-width: var(--tab-width);
   --history-width: min(570px, 44vw);
   --history-shift: calc(0.5 * (var(--tab-inset) + var(--history-width)));

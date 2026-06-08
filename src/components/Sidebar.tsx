@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import {
   AdvisorIcon,
   ArcusAgentIcon,
@@ -14,19 +14,21 @@ import {
   ResearcherIcon,
   WorkspaceIcon,
 } from "./icons/sidebar/SidebarNavIcons";
+import type { SidebarView } from "../types";
 import { ArcusLogo } from "./ArcusLogo";
+import { MissionControlPanel } from "./MissionControlPanel";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { SettingsIcon } from "./icons/SettingsIcon";
 import "./Sidebar.css";
 
 const MAIN_NAV_ITEMS = [
+  { label: "Arcus Agent", icon: ArcusAgentIcon },
   { label: "Dashboard", icon: DashboardIcon },
   { label: "Memory Search", icon: MemorySearchIcon },
-  { label: "Workspace", icon: WorkspaceIcon },
-  { label: "Reminder", icon: ReminderIcon },
   { label: "Mission Control", icon: MissionControlIcon },
   { label: "Projects", icon: ProjectsIcon },
-  { label: "Arcus Agent", icon: ArcusAgentIcon },
+  { label: "Reminder", icon: ReminderIcon },
+  { label: "Workspace", icon: WorkspaceIcon },
 ] as const;
 
 const AGENT_SUB_ITEMS = [
@@ -43,7 +45,7 @@ type AgentSubItem = (typeof AGENT_SUB_ITEMS)[number]["label"];
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  onProjectsModeChange?: (active: boolean) => void;
+  onSidebarViewChange?: (view: SidebarView) => void;
 }
 
 function NavButton({
@@ -90,30 +92,42 @@ function BackButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function Sidebar({ isOpen, onClose, onProjectsModeChange }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, onSidebarViewChange }: SidebarProps) {
   const [activeItem, setActiveItem] = useState<NavItem>("Dashboard");
   const [activeAgentSub, setActiveAgentSub] = useState<AgentSubItem | null>(null);
 
   const agentMode = activeItem === "Arcus Agent";
   const projectsMode = activeItem === "Projects";
+  const missionControlMode = activeItem === "Mission Control";
 
-  useEffect(() => {
-    onProjectsModeChange?.(projectsMode);
-  }, [projectsMode, onProjectsModeChange]);
+  const goToMain = () => {
+    setActiveItem("Dashboard");
+    setActiveAgentSub(null);
+    onSidebarViewChange?.("main");
+  };
 
   const handleMainClick = (label: NavItem) => {
     if (label === "Arcus Agent") {
       setActiveItem("Arcus Agent");
       setActiveAgentSub(null);
+      onSidebarViewChange?.("agent");
       return;
     }
     if (label === "Projects") {
       setActiveItem("Projects");
       setActiveAgentSub(null);
+      onSidebarViewChange?.("projects");
+      return;
+    }
+    if (label === "Mission Control") {
+      setActiveItem("Mission Control");
+      setActiveAgentSub(null);
+      onSidebarViewChange?.("mission-control");
       return;
     }
     setActiveItem(label);
     setActiveAgentSub(null);
+    onSidebarViewChange?.("main");
   };
 
   return (
@@ -124,7 +138,7 @@ export function Sidebar({ isOpen, onClose, onProjectsModeChange }: SidebarProps)
         aria-hidden={!isOpen}
       />
       <aside
-        className={`sidebar ${isOpen ? "sidebar--open" : ""} ${projectsMode ? "sidebar--projects" : ""}`}
+        className={`sidebar ${isOpen ? "sidebar--open" : ""} ${projectsMode ? "sidebar--projects" : ""} ${missionControlMode ? "sidebar--mission-control" : ""}`}
         aria-hidden={!isOpen}
       >
         <div className="sidebar__header">
@@ -132,17 +146,12 @@ export function Sidebar({ isOpen, onClose, onProjectsModeChange }: SidebarProps)
           <span className="sidebar__title">A R C U S</span>
         </div>
         <nav
-          className={`sidebar__nav ${projectsMode ? "sidebar__nav--projects" : ""}`}
+          className={`sidebar__nav ${agentMode ? "sidebar__nav--sub" : ""} ${projectsMode ? "sidebar__nav--projects" : ""} ${missionControlMode ? "sidebar__nav--mission-control" : ""}`}
           aria-label="Main"
         >
           {agentMode ? (
             <>
-              <BackButton
-                onClick={() => {
-                  setActiveItem("Dashboard");
-                  setActiveAgentSub(null);
-                }}
-              />
+              <BackButton onClick={goToMain} />
               <div className="sidebar__agent-sub">
                 {AGENT_SUB_ITEMS.map(({ label, icon }) => (
                   <NavButton
@@ -156,9 +165,13 @@ export function Sidebar({ isOpen, onClose, onProjectsModeChange }: SidebarProps)
                 ))}
               </div>
             </>
+          ) : missionControlMode ? (
+            <div className="sidebar__mission-control">
+              <MissionControlPanel onBack={goToMain} />
+            </div>
           ) : projectsMode ? (
             <>
-              <BackButton onClick={() => setActiveItem("Dashboard")} />
+              <BackButton onClick={goToMain} />
               <div className="sidebar__projects">
                 <ProjectsPanel />
               </div>
@@ -175,6 +188,7 @@ export function Sidebar({ isOpen, onClose, onProjectsModeChange }: SidebarProps)
             ))
           )}
         </nav>
+        {!missionControlMode && (
         <div className="sidebar__profile">
           <button
             type="button"
@@ -197,6 +211,7 @@ export function Sidebar({ isOpen, onClose, onProjectsModeChange }: SidebarProps)
             <SettingsIcon />
           </button>
         </div>
+        )}
       </aside>
     </>
   );

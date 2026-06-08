@@ -17,3 +17,4 @@ export interface Message {
   timestamp: Date;
 }
 
+export type SidebarView = "main" | "projects" | "agent" | "mission-control";

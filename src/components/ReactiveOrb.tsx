@@ -60,8 +60,8 @@ const fragmentShader = /* glsl */ `
     float wave2 = sin(diag2 * 3.5 - t * 0.75) * 0.5 + 0.5;
     float wave3 = cos(vWorldPos.z * 2.2 + t * 0.55) * sin(vWorldPos.x * 1.8 - t * 0.45) * 0.5 + 0.5;
     float blend = wave1 * 0.48 + wave2 * 0.34 + wave3 * 0.18;
-    blend = smoothstep(0.22, 0.78, blend);
-    blend = pow(blend, 1.4);
+    blend = smoothstep(0.26, 0.74, blend);
+    blend = pow(blend, 1.22);
 
     // Reference palette: royal cobalt valleys, electric cyan peaks
     vec3 royalDeep = vec3(0.0, 0.18, 0.55);   // #002E8C
@@ -110,70 +110,116 @@ export function ReactiveOrb({
 
     const ORB_BASE_SIZE = 380;
     let viewportScale = 1;
+    let disposed = false;
+    let raf = 0;
+    let observer: ResizeObserver | null = null;
+    let scene: THREE.Scene | null = null;
+    let renderer: THREE.WebGLRenderer | null = null;
+    let geometry: THREE.IcosahedronGeometry | null = null;
+    let material: THREE.ShaderMaterial | null = null;
 
     const updateViewportScale = () => {
       const size = Math.min(mount.clientWidth, mount.clientHeight);
-      viewportScale = size / ORB_BASE_SIZE;
+      viewportScale = Math.max(size, 1) / ORB_BASE_SIZE;
     };
 
-    updateViewportScale();
-    const width = mount.clientWidth;
-    const height = mount.clientHeight;
+    const getDpr = () => Math.min(window.devicePixelRatio || 1, 3);
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
-    camera.position.z = 4.4;
-
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: "high-performance",
+    const getSize = () => ({
+      width: Math.round(Math.max(mount.clientWidth, 1)),
+      height: Math.round(Math.max(mount.clientHeight, 1)),
     });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-    mount.appendChild(renderer.domElement);
 
-    const geometry = new THREE.IcosahedronGeometry(0.82, 64);
-    const uniforms = {
-      uTime: { value: 0 },
-      uActivity: { value: 0 },
-      uSpeak: { value: 0 },
+    const teardown = () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
+      observer?.disconnect();
+      geometry?.dispose();
+      material?.dispose();
+      renderer?.dispose();
+      if (renderer?.domElement.parentElement === mount) {
+        mount.removeChild(renderer.domElement);
+      }
     };
 
-    const material = new THREE.ShaderMaterial({
-      vertexShader,
-      fragmentShader,
-      uniforms,
-      transparent: true,
-      depthWrite: false,
-    });
+    let camera: THREE.PerspectiveCamera | null = null;
 
-    const orb = new THREE.Mesh(geometry, material);
-    scene.add(orb);
+    const applyRendererSize = () => {
+      if (!renderer || !camera) return;
+      if (mount.clientWidth < 2 || mount.clientHeight < 2) return;
+      const { width: w, height: h } = getSize();
+      renderer.setPixelRatio(getDpr());
+      renderer.setSize(w, h, false);
+      updateViewportScale();
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
 
-    const keyLight = new THREE.DirectionalLight(0xb8ecff, 1.4);
-    keyLight.position.set(2, 2, 4);
-    scene.add(keyLight);
+    const onResize = () => {
+      applyRendererSize();
+    };
 
-    const rimLight = new THREE.DirectionalLight(0x00bfff, 1.2);
-    rimLight.position.set(-3, -1, 2);
-    scene.add(rimLight);
+    const setup = () => {
+      if (disposed || renderer) return;
+      if (mount.clientWidth < 2 || mount.clientHeight < 2) return;
 
-    const fillLight = new THREE.DirectionalLight(0x0047ab, 0.6);
-    fillLight.position.set(0, -2, 3);
-    scene.add(fillLight);
+      const { width, height } = getSize();
+      updateViewportScale();
 
-    const ambient = new THREE.AmbientLight(0x66ccff, 0.45);
-    scene.add(ambient);
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+      camera.position.z = 4.4;
 
-    let raf = 0;
-    const clock = new THREE.Clock();
-    let smoothActivity = 0;
-    let smoothSpeak = 0;
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+      });
+      renderer.setPixelRatio(getDpr());
+      renderer.setSize(width, height, false);
+      renderer.setClearColor(0x000000, 0);
+      mount.appendChild(renderer.domElement);
 
-    const animate = () => {
-      const elapsed = clock.getElapsedTime();
+      geometry = new THREE.IcosahedronGeometry(0.82, 64);
+      const uniforms = {
+        uTime: { value: 0 },
+        uActivity: { value: 0 },
+        uSpeak: { value: 0 },
+      };
+
+      material = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms,
+        transparent: true,
+        depthWrite: false,
+      });
+
+      const orb = new THREE.Mesh(geometry, material);
+      scene.add(orb);
+
+      const keyLight = new THREE.DirectionalLight(0xb8ecff, 1.4);
+      keyLight.position.set(2, 2, 4);
+      scene.add(keyLight);
+
+      const rimLight = new THREE.DirectionalLight(0x00bfff, 1.2);
+      rimLight.position.set(-3, -1, 2);
+      scene.add(rimLight);
+
+      const fillLight = new THREE.DirectionalLight(0x0047ab, 0.6);
+      fillLight.position.set(0, -2, 3);
+      scene.add(fillLight);
+
+      const ambient = new THREE.AmbientLight(0x66ccff, 0.45);
+      scene.add(ambient);
+
+      const clock = new THREE.Clock();
+      let smoothActivity = 0;
+      let smoothSpeak = 0;
+
+      const animate = () => {
+        if (disposed || !renderer || !scene) return;
+        const elapsed = clock.getElapsedTime();
       const targetActivity = activityRef.current;
       const targetSpeak = assistantRef.current
         ? 0.65 + Math.sin(elapsed * 9) * 0.25
@@ -200,32 +246,21 @@ export function ReactiveOrb({
       const driftY = Math.cos(elapsed * 0.42) * 0.025 * wobble;
       orb.position.set(driftX, driftY, 0);
 
-      renderer.render(scene, camera);
-      raf = requestAnimationFrame(animate);
+        if (camera) renderer.render(scene, camera);
+        raf = requestAnimationFrame(animate);
+      };
+
+      animate();
     };
 
-    animate();
-
-    const onResize = () => {
-      const w = mount.clientWidth;
-      const h = mount.clientHeight;
-      updateViewportScale();
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    };
-
-    const observer = new ResizeObserver(onResize);
+    observer = new ResizeObserver(() => {
+      if (!renderer) setup();
+      else onResize();
+    });
     observer.observe(mount);
+    setup();
 
-    return () => {
-      cancelAnimationFrame(raf);
-      observer.disconnect();
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
-      mount.removeChild(renderer.domElement);
-    };
+    return teardown;
   }, []);
 
   return (

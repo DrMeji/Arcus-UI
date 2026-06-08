@@ -32,13 +32,13 @@ export function ProjectsPanel() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const visibleProjects = useMemo(() => {
+    let list = PROJECTS;
     if (filter === "created") {
-      return PROJECTS.filter((project) => project.createdByYou);
+      list = PROJECTS.filter((project) => project.createdByYou);
+    } else if (filter === "shared") {
+      list = PROJECTS.filter((project) => project.shared);
     }
-    if (filter === "shared") {
-      return PROJECTS.filter((project) => project.shared);
-    }
-    return PROJECTS;
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
   }, [filter]);
 
   return (

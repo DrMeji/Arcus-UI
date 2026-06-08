@@ -8,7 +8,6 @@
 }
 
 .reactive-orb {
-  --orb-size: 420px;
   position: relative;
   width: min(var(--orb-size), 62vw);
   height: min(var(--orb-size), 62vw);

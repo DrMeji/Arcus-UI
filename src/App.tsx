@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { MessageCompose } from "./components/MessageCompose";
 import { MicListen } from "./components/MicListen";
@@ -8,7 +8,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SidebarToggle } from "./components/SidebarToggle";
 import { useAudioReactive } from "./hooks/useAudioReactive";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
-import type { AiModelId, Message } from "./types";
+import type { AiModelId, Message, SidebarView } from "./types";
 import "./App.css";
 
 const INITIAL_MESSAGES: Message[] = [
@@ -22,7 +22,7 @@ const INITIAL_MESSAGES: Message[] = [
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarProjectsMode, setSidebarProjectsMode] = useState(false);
+  const [sidebarView, setSidebarView] = useState<SidebarView>("main");
   const [messageOpen, setMessageOpen] = useState(false);
   const [listeningOpen, setListeningOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -36,7 +36,13 @@ export default function App() {
     micError,
   } = useAudioReactive();
 
+  const missionControlOpen = sidebarView === "mission-control" && sidebarOpen;
   const controlsHidden = messageOpen || listeningOpen || historyOpen;
+
+  useEffect(() => {
+    if (!missionControlOpen) return;
+    setHistoryOpen(false);
+  }, [missionControlOpen]);
 
   const openHistory = () => {
     setMessageOpen(false);
@@ -80,17 +86,29 @@ export default function App() {
 
   return (
     <div
-      className={`app ${sidebarOpen && sidebarProjectsMode ? "app--sidebar-wide" : ""}`}
+      className={`app ${sidebarOpen && sidebarView === "projects" ? "app--sidebar-projects" : ""} ${sidebarOpen && sidebarView === "mission-control" ? "app--sidebar-mission-control" : ""}`}
     >
-      <SidebarToggle
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen((open) => !open)}
-      />
+      {sidebarView === "main" && (
+        <SidebarToggle
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((open) => !open)}
+        />
+      )}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        onProjectsModeChange={setSidebarProjectsMode}
+        onSidebarViewChange={setSidebarView}
       />
+
+      <div
+        className={`app__orb-host ${sidebarOpen ? "app__orb-host--shifted" : ""} ${historyOpen ? "app__orb-host--history-shifted" : ""}`}
+      >
+        <ReactiveOrb
+          activity={level}
+          isUserSpeaking={isUserSpeaking || listeningOpen}
+          isAssistantSpeaking={isAssistantSpeaking}
+        />
+      </div>
 
       <HistoryPanel
         isOpen={historyOpen}
@@ -105,14 +123,6 @@ export default function App() {
       <div
         className={`app__stage ${sidebarOpen ? "app__stage--shifted" : ""} ${historyOpen ? "app__stage--history-shifted" : ""}`}
       >
-        <div className="app__center">
-          <ReactiveOrb
-            activity={level}
-            isUserSpeaking={isUserSpeaking || listeningOpen}
-            isAssistantSpeaking={isAssistantSpeaking}
-          />
-        </div>
-
         <MessageCompose
           isOpen={messageOpen && !historyOpen}
           onClose={() => setMessageOpen(false)}
